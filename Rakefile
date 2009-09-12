@@ -1,18 +1,19 @@
 require 'rubygems'
 require 'rake'
+require 'rake/clean'
 
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
     gem.name = "ffi_dry"
-    gem.summary = %Q{TODO: one-line summary of your gem}
-    gem.description = %Q{TODO: longer description of your gem}
+    gem.summary = %Q{Syntactic sugar and helper utilities for FFI}
+    gem.description = %Q{Provides a some useful modules, classes, and methods as well as a DSL-like syntax for FFI::Struct layouts}
     gem.email = "emonti@matasano.com"
     gem.homepage = "http://github.com/emonti/ffi_dry"
     gem.authors = ["Eric Monti"]
+    gem.add_dependency "ffi-ffi", ">= 0.5.0"
     gem.add_development_dependency "rspec"
     gem.add_development_dependency "yard"
-    # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
   end
 rescue LoadError
   puts "Jeweler (or a dependency) not available. Install it with: sudo gem install jeweler"

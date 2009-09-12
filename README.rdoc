@@ -1,17 +1,149 @@
 = ffi_dry
 
-Description goes here.
+Helpers, sugar methods, and new features over Ruby FFI to do some common 
+things and add support for some uncommon ones.
 
-== Note on Patches/Pull Requests
+== Requirements
  
-* Fork the project.
-* Make your feature addition or bug fix.
-* Add tests for it. This is important so I don't break it in a
-  future version unintentionally.
-* Commit, do not mess with rakefile, version, or history.
-  (if you want to have your own version, that is fine but
-   bump version in a commit by itself I can ignore when I pull)
-* Send me a pull request. Bonus points for topic branches.
+* ffi-ffi (>= 0.5.0) - github.com/ffi/ffi
+
+
+== Synopsis
+
+
+One major feature is a 'dsl'-like syntax for declaring structure members
+in FFI::Struct or FFI::ManagedStruct definitions.
+    
+    require 'rubygems'
+    require 'ffi'
+    require 'ffi/dry'
+
+    class SomeStruct < FFI::Struct
+      include FFI::DRY::StructHelper
+
+      # we get a new way of specifying layouts with a 'dsl'-like syntax
+      # The :desc => ... part is arbitrary and can be used however we like.
+      dsl_layout do
+        field   :field1,  :uint16, :desc => 'this is field 1'
+        field   :field2,  :uint16, :desc => 'this is field 2'
+      end
+    end
+
+
+    ss0=SomeStruct.new
+
+With the declaration above, we specified :desc hash value, which was stored
+in metadata along with the field name and type.
+
+    pp ss0.dsl_metadata 
+    [{:type=>:uint16, :name=>:field1, :desc=>"this is field 1"},
+     {:type=>:uint16, :name=>:field2, :desc=>"this is field 2"}]
+    # => nil
+
+
+And we get free additional ways of instantiating and declaring values during 
+initialization. (The FFI standard ways still work too)
+
+    raw_data = "\x00\x00\xff\xff"
+
+    ss1=SomeStruct.new :raw => raw_data
+    ss2=SomeStruct.new :raw => raw_data, :field1 => 1, :field2 => 2
+    ss3=SomeStruct.new {|x| x.field1=1 }
+    ss4=SomeStruct.new(:raw => raw_data) {|x| x.field1=1 }
+
+    [ ss0, 
+      ss1, 
+      ss2, 
+      ss3, 
+      ss4].each_with_index {|x,i| p ["ss#{i}",[x.field1, x.field2]]}
+
+Here's an example which utilizes that arbitrary ':desc' parameter in a 
+"neighborly" way.
+
+    require 'rubygems'
+    require 'ffi'
+    require 'ffi/dry'
+
+    class NeighborlyStruct < ::FFI::Struct
+      include ::FFI::DRY::StructHelper
+
+      def self.describe
+        print "Struct: #{self.class}"
+        dsl_metadata().each_with_index do |spec, i|
+          print "  Field #{i}\n"
+          print "    name:  #{spec[:name].inspect}\n"
+          print "    type:  #{spec[:type].inspect}\n"
+          print "    desc:  #{spec[:desc]}\n\n"
+        end
+        print "\n"
+      end
+      def describe;  self.class.describe;  end
+    end
+
+    class TestStruct < NeighborlyStruct
+      dsl_layout do
+        field   :field1,  :uint8,  :desc => "test field 1"
+        field   :field2,  :uint8,  :desc => "test field 2"
+      end
+    end
+
+    class SomeStruct < NeighborlyStruct
+      dsl_layout do
+        field  :kind, :uint8,      :desc => "a type identifier"
+        struct :tst,  TestStruct,  :desc => "a nested TestStruct"
+        field  :len,  :uint8,      :desc => "8-bit size value (>= self.size+2)"
+        array  :str,  [:char,255], 
+            :desc => "a string up to 255 bytes bound by :len"
+      end
+
+      # override kind getter method
+      def kind
+        [:default, :bar, :baz][ self[:kind] ]
+      end
+    end
+
+    s1=TestStruct.new
+    s2=SomeStruct.new
+
+    puts "*"*70
+    s1.describe
+    # we get a dump of metadata
+    puts "*"*70
+    s2.describe
+    # we get a dump of metadata
+
+
+There's also some helpers for collecting lookup maps for constants, a common
+and handy thing when porting various libraries.
+
+    require 'ffi/dry'
+    require 'socket'
+
+    module AddressFamily
+      include FFI::DRY::ConstMap
+      slurp_constants ::Socket, "AF_"
+      def list ; @@list ||= super() ; end
+    end
+
+AddressFamily now has all the constants it found for Socket::AF_*
+
+   AddressFamily::INET
+   AddressFamily::LINK
+   AddressFamily::INET6
+etc...
+
+We can do type and value lookups using []
+    AddressFamily[2]      # => "INET"
+    AddressFamily["INET"] # => 2
+    
+We can get a hash of all key-value pairs with .list
+    AddressFamily.list
+    # => {"NATM"=>31, "DLI"=>13, "UNIX"=>1, "NETBIOS"=>33,  ...}
+
+... which can be inverted for a reverse mapping
+    AddressFamily.list.invert
+    # => {16=>"APPLETALK", 5=>"CHAOS", 27=>"NDRV", 0=>"UNSPEC", ...}
+
 
 == Copyright
 
