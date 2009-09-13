@@ -340,7 +340,12 @@ module FFI::DRY
     def [](arg)
       if arg.is_a? Integer
         ret = []
-        list.invert.sort.each {|v,n| ret << n if (v & arg) == v }
+        if arg == 0
+          n = list.invert[0]
+          ret << n if n
+        else
+          list.invert.sort.each {|v,n| ret << n if v !=0 and (v & arg) == v }
+        end
         return ret
       elsif arg.is_a? String or arg.is_a? Symbol
         list[arg.to_s.upcase]
