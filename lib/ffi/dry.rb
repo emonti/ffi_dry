@@ -278,8 +278,7 @@ module FFI::DRY
 
   end
 
-  # Used for creating various value <=> constant mapping modules such as 
-  # Ip::Hdr::Proto for IP protocols.
+  # Used for creating various value <=> constant mapping namespace modules.
   module ConstMap
 
     def self.included(klass)
@@ -336,8 +335,8 @@ module FFI::DRY
     end
 
     # A flexible lookup. Takes 'arg' as a Symbol or String as a name to lookup 
-    # a value, or an Integer to lookup a corresponding names for the flags 
-    # present in it.
+    # a bit-flag value, or an Integer to lookup a corresponding names for the 
+    # flags present in it.
     def [](arg)
       if arg.is_a? Integer
         ret = []
