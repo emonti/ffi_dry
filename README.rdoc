@@ -10,8 +10,9 @@ things and add support for some uncommon ones.
 
 == Synopsis
 
+(samples/ in the package for code)
 
-One major feature is a 'dsl'-like syntax for declaring structure members
+A major feature is a DSL"-like" syntax for declaring structure members
 in FFI::Struct or FFI::ManagedStruct definitions.
     
     require 'rubygems'
@@ -22,27 +23,32 @@ in FFI::Struct or FFI::ManagedStruct definitions.
       include FFI::DRY::StructHelper
 
       # we get a new way of specifying layouts with a 'dsl'-like syntax
-      # The :desc => ... part is arbitrary and can be used however we like.
+      # The hash containing {:desc => ... } can contain arbitrary keys which 
+      # can be used however we like. dsl_metadata will contain all these
+      # in the class and instance.
       dsl_layout do
         field   :field1,  :uint16, :desc => 'this is field 1'
         field   :field2,  :uint16, :desc => 'this is field 2'
       end
     end
 
-
     ss0=SomeStruct.new
 
-With the declaration above, we specified :desc hash value, which was stored
-in metadata along with the field name and type.
+With the declarations above, we specified :desc hash value in metadata
+Let's check out in our instance.
 
     pp ss0.dsl_metadata 
     [{:type=>:uint16, :name=>:field1, :desc=>"this is field 1"},
      {:type=>:uint16, :name=>:field2, :desc=>"this is field 2"}]
     # => nil
 
+Or class.
 
-And we get free additional ways of instantiating and declaring values during 
-initialization. (The FFI standard ways still work too)
+    pp SomeStruct.dsl_metadata
+    #...
+
+We get some additional ways of instantiating and declaring values for free 
+during initialization. (The FFI standard ways still work too)
 
     raw_data = "\x00\x00\xff\xff"
 
@@ -55,10 +61,19 @@ initialization. (The FFI standard ways still work too)
       ss1, 
       ss2, 
       ss3, 
-      ss4].each_with_index {|x,i| p ["ss#{i}",[x.field1, x.field2]]}
+      ss4 ].each_with_index {|x,i| p ["ss#{i}",[x.field1, x.field2]]}
 
-Here's an example which utilizes that arbitrary ':desc' parameter in a 
-"neighborly" way.
+    # which will produce...
+    # ["ss0", [0, 0]]
+    # ["ss1", [0, 65535]]
+    # ["ss2", [1, 2]]
+    # ["ss3", [1, 0]]
+    # ["ss4", [1, 65535]]
+
+
+Here's a broader example which utilizes that arbitrary ':desc' parameter in a 
+"neighborly" way. This also demonstrates superclasses to add common struct
+features, declaring array fields, as well as nesting other structs.
 
     require 'rubygems'
     require 'ffi'
@@ -68,7 +83,7 @@ Here's an example which utilizes that arbitrary ':desc' parameter in a
       include ::FFI::DRY::StructHelper
 
       def self.describe
-        print "Struct: #{self.class}"
+        print "Struct: #{self.name}"
         dsl_metadata().each_with_index do |spec, i|
           print "  Field #{i}\n"
           print "    name:  #{spec[:name].inspect}\n"
@@ -96,7 +111,8 @@ Here's an example which utilizes that arbitrary ':desc' parameter in a
             :desc => "a string up to 255 bytes bound by :len"
       end
 
-      # override kind getter method
+      # override kind getter method with our own
+      # resolves kind to some kind of type array for example...
       def kind
         [:default, :bar, :baz][ self[:kind] ]
       end
@@ -105,16 +121,78 @@ Here's an example which utilizes that arbitrary ':desc' parameter in a
     s1=TestStruct.new
     s2=SomeStruct.new
 
+    # check out that 'kind' override:
+    s2.kind
+    # => :default
+
+    # oh and the regular FFI way is always intact
+    s2[:kind]
+    # => 0
+
+    s2[:kind]=1
+    s2.kind
+    # => :bar
+
+    s2.kind=3
+    s2.kind
+    # => :baz
+
     puts "*"*70
     s1.describe
-    # we get a dump of metadata
+    ## we get a dump of metadata
+    # **********************************************************************
+    # Struct: TestStruct  
+    # Field 0
+    #   name:  :field1
+    #   type:  :uint8
+    #   desc:  test field 1
+    #
+    # Field 1
+    #   name:  :field2
+    #   type:  :uint8
+    #   desc:  test field 2
+
     puts "*"*70
     s2.describe
-    # we get a dump of metadata
+    ## we get a dump of metadata
+    # Struct: SomeStruct  Field 0
+    #     name:  :kind
+    #     type:  :uint8
+    #     desc:  a type identifier
+    #
+    #   Field 1
+    #     name:  :tst
+    #     type:  TestStruct
+    #     desc:  a nested TestStruct
+    #
+    #   Field 2
+    #     name:  :len
+    #     type:  :uint8
+    #     desc:  8-bit size value (>= self.size+2)
+    #
+    #   Field 3
+    #     name:  :str
+    #     type:  [:char, 255]
+    #     desc:  a string up to 255 bytes bound by :len
 
+    puts "*"*70
+    s2.tst.describe
+    ## same as s1.describe
+    # **********************************************************************
+    # Struct: TestStruct  
+    # Field 0
+    #   name:  :field1
+    #   type:  :uint8
+    #   desc:  test field 1
+    #
+    # Field 1
+    #   name:  :field2
+    #   type:  :uint8
+    #   desc:  test field 2
 
 There's also some helpers for collecting lookup maps for constants, a common
-and handy thing when porting various libraries.
+and handy thing when porting various libraries. We use Socket here just for
+example purposes, you can 'slurp' constants form any namespace this way.
 
     require 'ffi/dry'
     require 'socket'
@@ -122,29 +200,34 @@ and handy thing when porting various libraries.
     module AddressFamily
       include FFI::DRY::ConstMap
       slurp_constants ::Socket, "AF_"
-      def list ; @@list ||= super() ; end
+      def list ; @@list ||= super() ; end  # only generate the hash once
     end
 
-AddressFamily now has all the constants it found for Socket::AF_*
+AddressFamily now has all the constants it found for Socket::AF_* minus the
+prefix.
 
    AddressFamily::INET
    AddressFamily::LINK
    AddressFamily::INET6
+
 etc...
 
-We can do type and value lookups using []
+We can do type or value lookups using []
+
     AddressFamily[2]      # => "INET"
     AddressFamily["INET"] # => 2
     
-We can get a hash of all key-value pairs with .list
+We can get a hash of all constant->value pairs with .list
+
     AddressFamily.list
     # => {"NATM"=>31, "DLI"=>13, "UNIX"=>1, "NETBIOS"=>33,  ...}
 
-... which can be inverted for a reverse mapping
+... and invert for a reverse mapping
+
     AddressFamily.list.invert
     # => {16=>"APPLETALK", 5=>"CHAOS", 27=>"NDRV", 0=>"UNSPEC", ...}
 
 
-== Copyright
+== License
 
 Copyright (c) 2009 Eric Monti. See LICENSE for details.
