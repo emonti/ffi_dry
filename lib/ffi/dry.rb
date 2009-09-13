@@ -217,6 +217,7 @@ module FFI::DRY
     #
     #   struct field_name,  RubyClass, { ... metadata ... }
     #
+    # :offset is a special key in metadata, specifies the offset of the field.
     def struct(name, klass, o={})
       unless klass.kind_of?(Class) and klass < ::FFI::Struct
         raise(::ArgumentError, "klass must be a struct")
@@ -236,6 +237,7 @@ module FFI::DRY
     #
     #   array field_name, [ctype, N], { ... metadata ... }
     #
+    # :offset is a special key in metadata, specifies the offset of the field.
     def array(name, type, o={})
       unless type.kind_of?(::Array)
         raise(::ArgumentError, "type must be an array") 
@@ -256,6 +258,7 @@ module FFI::DRY
     #
     #   field field_name, ctype, { ... metadata ... }
     #
+    # :offset is a special key in metadata, specifies the offset of the field.
     def field(name, type, o={})
       opts = o.merge(:name => name, :type => type)
       offset = opts[:offset]
