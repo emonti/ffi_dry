@@ -76,6 +76,9 @@ module FFI::DRY
     # the :raw tag.
     #
     def initialize(*args)
+      @dsl_metadata = self.class.dsl_metadata
+      params=nil
+
       if args.size == 1 and (oparams=args[0]).is_a? Hash
         params = oparams.dup
         if raw=params.delete(:raw)
@@ -83,11 +86,11 @@ module FFI::DRY
         else
           super()
         end
-        set_fields(params)
       else
         super(*args)
       end
-      @dsl_metadata = self.class.dsl_metadata
+
+      set_fields(params)
       yield self if block_given?
     end
 
@@ -103,8 +106,8 @@ module FFI::DRY
     # This method is called automatically if you are using the initialize() 
     # method provided in the DryStruct class and passing it a Hash as its only
     # argument.
-    def set_fields(params)
-      params.keys.each do |p|
+    def set_fields(params=nil)
+      (params || {}).keys.each do |p|
         if members().include?(p)
           self.__send__(:"#{p}=", params[p])
         else
@@ -157,11 +160,11 @@ module FFI::DRY
         builder.instance_eval(&block)
         @layout = builder.build
         @size = @layout.size
-        _class_do_dsl_metadata( builder.metadata )
+        _class_meths_from_dsl_metadata( builder.metadata )
         return @layout
       end
 
-      def _class_do_dsl_metadata(meta)
+      def _class_meths_from_dsl_metadata(meta)
         (@dsl_metadata = meta).each do |spec|
           name = spec[:name]
           type = spec[:type]
