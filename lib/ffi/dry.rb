@@ -249,7 +249,13 @@ module FFI::DRY
       opts = o.merge(:name => name, :type => type)
       offset = opts[:offset]
       mod = enclosing_module
-      ret=@builder.add_array(name, find_type(type[0], mod), type[1], offset)
+      ret= 
+        if @builder.respond_to?(:add_array)
+          @builder.add_array(name, find_type(type[0], mod), type[1], offset)
+        else
+          @builder.add_field(name, type, offset)
+        end
+
       @metadata << opts
       return ret
     end

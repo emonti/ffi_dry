@@ -11,7 +11,7 @@ begin
     gem.email = "emonti@matasano.com"
     gem.homepage = "http://github.com/emonti/ffi_dry"
     gem.authors = ["Eric Monti"]
-    gem.add_dependency "ffi-ffi", ">= 0.5.0"
+#    gem.add_dependency "ffi", ">= 0.5.0"
     gem.add_development_dependency "rspec"
     gem.add_development_dependency "yard"
   end
