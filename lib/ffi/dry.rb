@@ -5,7 +5,7 @@ require 'ffi'
 module FFI::DRY
   
   # A module to add syntactic sugar and some nice automatic getter/setter
-  # logic to FFI::Struct, FFI::ManagedStruct, etc.
+  # methods to FFI::Struct, FFI::ManagedStruct, etc.
   #
   # For example:
   #    require 'rubygems'
@@ -54,16 +54,20 @@ module FFI::DRY
   #     # ["ss3", [1, 0]]
   #     # ["ss4", [1, 65535]]
   #
-  module StructHelper #< ::FFI::Struct
+  module StructHelper
 
     attr_reader :dsl_metadata
 
-    # Adds field setting on initialization to ::FFI::Struct.new as well as
-    # a "yield(self) if block_given?" at the end.
+    # Allows setting structure fields on initialization to ::FFI::Struct.new 
+    # as well as a "yield(self) if block_given?" at the end.
     #
-    # The field initialization kicks in if there is only one argument, and it 
-    # is a Hash. 
+    # Field initialization happens if there is only one argument and it is
+    # a Hash. 
     #
+    # The params hash is taken as a set of values for fields where the hash 
+    # keys specify the field names to set.
+    #
+    # @param [Hash] params
     # Note: 
     # The :raw parameter is a special tag in the hash. The value is taken as a 
     # string and initialized into a new FFI::MemoryPointer which this Struct 
@@ -148,15 +152,13 @@ module FFI::DRY
 
       private
 
-      # This passes a block to an instance of DSL_StructLayoutBuilder, allowing
-      # for a more declarative syntax.
+      # This passes a block to an instance of DSLStructLayoutBuilder, allowing
+      # for a more declarative syntax with extra metadata.
       #
       # It is a replacement to layout() and stores the dsl_metadata gathered
       # about structure members locally.
-      #
-      #   
       def dsl_layout &block
-        builder = DSL_StructLayoutBuilder.new(self)
+        builder = DSLStructLayoutBuilder.new(self)
         builder.instance_eval(&block)
         @layout = builder.build
         @size = @layout.size
@@ -197,7 +199,7 @@ module FFI::DRY
   #
   # See the individual method descriptions for more info.
   #
-  class DSL_StructLayoutBuilder
+  class DSLStructLayoutBuilder
     attr_reader :builder, :metadata
 
     # Initializes the builder with a reference to the structure using it
@@ -277,25 +279,39 @@ module FFI::DRY
       return ret
     end
 
+    # This is a support method used similarly as in the actual builder.
+    # XXX Note, as of 0.5.0-final, this became a protected method in the 
+    # FFI builder. We probably need to figure out another, *supported*, way to 
+    # do this without meddling into back-end FFI implementations.
     def find_type(*args)
-      @pbind.find_type(*args)
+      @pbind.instance_eval { find_type(*args) }
     end
 
+    # This is a support method used similarly as in the actual builder.
+    # XXX Note, as of 0.5.0-final, this became a protected method in the 
+    # FFI builder. We probably need to figure out another, *supported*, way to 
+    # do this without meddling into back-end FFI implementations.
     def enclosing_module(*args)
-      @pbind.enclosing_module(*args)
+      @pbind.instance_eval { enclosing_module(*args) }
     end
 
   end
 
-  # Used for creating various value <=> constant mapping namespace modules.
+  # ConstMap can be used to organize and lookup value to constant mappings and
+  # vice versa. Constants can be imported from a namespace based on a regular
+  # expression or other means.
   module ConstMap
 
     def self.included(klass)
       klass.extend(ConstMap)
     end
 
-    # A flexible lookup. Takes 'arg' as a Symbol or String as a name to lookup 
-    # a value, or an Integer to lookup a corresponding name.
+    # A flexible name to value lookup. 
+    #
+    # @param [String, Symbol, Integer] arg
+    #   Use a Symbol or String as a name to lookup its value. Use an 
+    #   Integer to lookup the corresponding name.
+    #
     def [](arg)
       if arg.is_a? Integer
         list.invert[arg]
@@ -305,9 +321,10 @@ module FFI::DRY
     end
 
     # Generates a hash of all the constant names mapped to value. Usually,
-    # it's a good idea to override this like so in derived modules:
+    # it's a good idea to override this like so to cache results in 
+    # derived modules:
     #
-    #   def list; @@list = super() ; end
+    #   def list; @@list ||= super() ; end
     #
     def list
       constants.inject({}){|h,c| h.merge! c => const_get(c) }
@@ -333,8 +350,8 @@ module FFI::DRY
       end
   end
 
-  # Behaves just like ConstFlags, except that the [nnn] returns a list
-  # of names for the flags set on nnn. Name string lookups work same way as 
+  # Behaves just like ConstFlags, except that it returns a list
+  # of names for the flags. Name string lookups work same way as 
   # ConstFlags.
   module ConstFlagsMap
     include ConstMap
@@ -343,9 +360,11 @@ module FFI::DRY
       klass.extend(ConstFlagsMap)
     end
 
-    # A flexible lookup. Takes 'arg' as a Symbol or String as a name to lookup 
-    # a bit-flag value, or an Integer to lookup a corresponding names for the 
-    # flags present in it.
+    # A flexible lookup method for name to bit-flag mappings.
+    #
+    # @param [String, Symbol, Integer] arg
+    #   Symbol or String as a name to lookup a bit-flag value, or an 
+    #   Integer to lookup a corresponding names for the flags present in it.
     def [](arg)
       if arg.is_a? Integer
         ret = []
@@ -361,6 +380,79 @@ module FFI::DRY
       end
     end
   end
+
+
+  module NetEndian
+    extend ::FFI::Library
+
+    attach_function :htons, [:uint16], :uint16
+    attach_function :ntohs, [:uint16], :uint16
+    attach_function :htonl, [:uint32], :uint32
+    attach_function :ntohl, [:uint32], :uint32
+
+    I16_convert = [method(:ntohs), method(:htons)]
+    I32_convert = [method(:ntohl), method(:htonl)]
+
+    ENDIAN_METHS = {
+      ::FFI.find_type(:int16)  => I16_convert,
+      ::FFI.find_type(:uint16) => I16_convert,
+      ::FFI.find_type(:int32)  => I32_convert,
+      ::FFI.find_type(:uint32) => I32_convert,
+    }
+  end
+
+
+  # A special helper for network packet structures that use big-endian or
+  # "network" byte-order. This helper generates read/write accessors that
+  # automatically call the appropriate byte conversion function, ntohs/ntohl
+  # for 'reading' a 16/32 bit field, and htons/htonl for writing to one.
+  #
+  # NOTE this helper does not currently do anything special for 64-bit or
+  # higher values.
+  #
+  module NetStructHelper
+    def self.included(base)
+      base.instance_eval { include StructHelper }
+      base.extend(ClassMethods)
+    end
+
+    module ClassMethods
+
+      private
+
+      def _class_meths_from_dsl_metadata(meta)
+        (@dsl_metadata = meta).each do |spec|
+          name = spec[:name]
+          type = spec[:type]
+
+          # Create endian swapper accessors methods for each applicable
+          # field
+          if( type.kind_of?(Symbol) and 
+              cnv=NetEndian::ENDIAN_METHS[ ::FFI.find_type(type) ] )
+
+            unless instance_methods.include?(:"#{name}")
+              define_method(:"#{name}"){ cnv[0].call(self[name]) }
+            end
+            unless instance_methods.include?(:"#{name}=")
+              define_method(:"#{name}="){|val| self[name] = cnv[1].call(val) }
+            end
+
+          else
+
+            unless instance_methods.include?(:"#{name}")
+              define_method(:"#{name}"){ self[name] } 
+            end
+            unless instance_methods.include?(:"#{name}=")
+              define_method(:"#{name}="){|val| self[name]=val }
+            end 
+
+          end
+
+        end
+      end
+    end
+  end
+
 end
 
 
