@@ -1,0 +1,5 @@
+=== 0.1.4 / 2010-1-1
+  * Support for FFI 0.5.0 final and up.
+  * Added NetStructHelper with accessors to provide automatic network byte 
+  order conversion on network packet structures.
+
