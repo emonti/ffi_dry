@@ -108,7 +108,7 @@ module FFI::DRY
     # the layout.
     #
     # This method is called automatically if you are using the initialize() 
-    # method provided in the DryStruct class and passing it a Hash as its only
+    # method provided in the Struct class and passing it a Hash as its only
     # argument.
     def set_fields(params=nil)
       (params || {}).keys.each do |p|
