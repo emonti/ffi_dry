@@ -7,11 +7,11 @@ begin
   Jeweler::Tasks.new do |gem|
     gem.name = "ffi_dry"
     gem.summary = %Q{Syntactic sugar and helper utilities for FFI}
-    gem.description = %Q{Provides a some useful modules, classes, and methods as well as a DSL-like syntax for FFI::Struct layouts}
+    gem.description = %Q{Provides some useful modules, classes, and methods for FFI bindings  as well as a DSL-like syntax for FFI::Struct layouts}
     gem.email = "emonti@matasano.com"
     gem.homepage = "http://github.com/emonti/ffi_dry"
     gem.authors = ["Eric Monti"]
-#    gem.add_dependency "ffi", ">= 0.5.0"
+    gem.add_dependency "ffi", ">= 0.5.0"
     gem.add_development_dependency "rspec"
     gem.add_development_dependency "yard"
   end
