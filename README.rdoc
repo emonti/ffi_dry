@@ -5,14 +5,14 @@ things and add support for some uncommon ones.
 
 == Requirements
  
-* ffi-ffi (>= 0.5.0) - github.com/ffi/ffi
+* ffi (>= 0.5.0) - github.com/ffi/ffi
 
 
 == Synopsis
 
 (samples/ in the package for code)
 
-A major feature is a DSL"-like" syntax for declaring structure members
+One major feature is a DSL"-like" syntax for declaring structure members
 in FFI::Struct or FFI::ManagedStruct definitions.
     
     require 'rubygems'
@@ -34,15 +34,13 @@ in FFI::Struct or FFI::ManagedStruct definitions.
 
     ss0=SomeStruct.new
 
-With the declarations above, we specified :desc hash value in metadata
-Let's check out in our instance.
+With the declarations above, we specified :desc hash value in metadata. Extra
+metadata can have arbitrary keys and is accessible in every instance and class.
 
     pp ss0.dsl_metadata 
     [{:type=>:uint16, :name=>:field1, :desc=>"this is field 1"},
      {:type=>:uint16, :name=>:field2, :desc=>"this is field 2"}]
     # => nil
-
-Or class.
 
     pp SomeStruct.dsl_metadata
     #...
@@ -57,13 +55,10 @@ during initialization. (The FFI standard ways still work too)
     ss3=SomeStruct.new {|x| x.field1=1 }
     ss4=SomeStruct.new(:raw => raw_data) {|x| x.field1=1 }
 
-    [ ss0, 
-      ss1, 
-      ss2, 
-      ss3, 
-      ss4 ].each_with_index {|x,i| p ["ss#{i}",[x.field1, x.field2]]}
+    [ ss0, ss1, ss2, ss3, ss4 
+    ].each_with_index {|x,i| p ["ss#{i}",[x.field1, x.field2]]}
 
-    # which will produce...
+    # which produces...
     # ["ss0", [0, 0]]
     # ["ss1", [0, 65535]]
     # ["ss2", [1, 2]]
@@ -72,8 +67,8 @@ during initialization. (The FFI standard ways still work too)
 
 
 Here's a broader example which utilizes that arbitrary ':desc' parameter in a 
-"neighborly" way. This also demonstrates superclasses to add common struct
-features, declaring array fields, as well as nesting other structs.
+"neighborly" way. This also demonstrates using superclasses to add common 
+struct features, declaring array fields, as well as nesting other structs.
 
     require 'rubygems'
     require 'ffi'
@@ -190,9 +185,10 @@ features, declaring array fields, as well as nesting other structs.
     #   type:  :uint8
     #   desc:  test field 2
 
-There's also some helpers for collecting lookup maps for constants, a common
-and handy thing when porting various libraries. We use Socket here just for
-example purposes, you can 'slurp' constants form any namespace this way.
+There's also some helper modules for collecting lookup maps for constants, a 
+common and handy thing when porting various libraries. We use the Ruby Socket 
+socket namespace here for demonstration  purposes. You can 'slurp' constants 
+from any namespace this way.
 
     require 'ffi/dry'
     require 'socket'
