@@ -169,13 +169,21 @@ module FFI::DRY
       def _class_meths_from_dsl_metadata(meta)
         (@dsl_metadata = meta).each do |spec|
           name = spec[:name]
-          type = spec[:type]
-          define_method(:"#{name}") do 
-            self[name]
-          end unless instance_methods.include?(:"#{name}")
-          define_method(:"#{name}=") do |val|
-            self[name]=val
-          end unless instance_methods.include?(:"#{name}=")
+          ftype = spec[:type]
+          unless instance_methods.include?(:"#{name}")
+            pp ftype, spec, ftype
+            if p=spec[:p_struct] and p.kind_of?(Class) and p < FFI::Struct
+              define_method(:"#{name}") do
+                p.new(self[name]) unless self[name].null?
+              end
+            else
+              define_method(:"#{name}") { self[name] }
+            end
+          end
+
+          unless instance_methods.include?(:"#{name}=")
+            define_method(:"#{name}=") {|val| self[name]=val }
+          end 
         end
       end
     end
@@ -233,6 +241,18 @@ module FFI::DRY
       ret=@builder.add_struct(name, klass, offset)
       @metadata << opts
       return ret
+    end
+
+    # A pointer to a structure. The structure does not allocate the entire
+    # space for the structure, just a pointer. When calling the accessors for
+    # a p_struct field, a new instance of the FFI::Struct will be returned.
+    def p_struct(name, klass, o={})
+      unless klass.kind_of?(Class) and klass < ::FFI::Struct
+        raise(::ArgumentError, "klass must be a struct")
+      end
+      opts = o.merge(:p_struct => klass)
+      offset = opts[:offset]
+      field(name, :pointer, opts)
     end
 
     # Calls StructLayoutBuider.add_array() on the builder and stores 
