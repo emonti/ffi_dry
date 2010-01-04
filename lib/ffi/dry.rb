@@ -171,7 +171,6 @@ module FFI::DRY
           name = spec[:name]
           ftype = spec[:type]
           unless instance_methods.include?(:"#{name}")
-            pp ftype, spec, ftype
             if p=spec[:p_struct] and p.kind_of?(Class) and p < FFI::Struct
               define_method(:"#{name}") do
                 p.new(self[name]) unless self[name].null?
