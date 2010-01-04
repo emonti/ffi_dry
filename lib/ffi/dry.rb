@@ -171,7 +171,7 @@ module FFI::DRY
           name = spec[:name]
           ftype = spec[:type]
           unless instance_methods.include?(:"#{name}")
-            if p=spec[:p_struct] and p.kind_of?(Class) and p < FFI::Struct
+            if p=spec[:p_struct] and p.kind_of?(Class)
               define_method(:"#{name}") do
                 p.new(self[name]) unless self[name].null?
               end
@@ -246,8 +246,8 @@ module FFI::DRY
     # space for the structure, just a pointer. When calling the accessors for
     # a p_struct field, a new instance of the FFI::Struct will be returned.
     def p_struct(name, klass, o={})
-      unless klass.kind_of?(Class) and klass < ::FFI::Struct
-        raise(::ArgumentError, "klass must be a struct")
+      unless klass.kind_of?(Class)
+        raise(::ArgumentError, "klass must be a Class")
       end
       opts = o.merge(:p_struct => klass)
       offset = opts[:offset]
