@@ -190,6 +190,19 @@ module FFI::DRY
     def self.included(base)
       base.extend(ClassMethods)
     end
+
+    alias inspect_orig inspect
+
+    # Overrides inspect to show field names and values
+    def inspect
+      ret = "#<#{self.class}"
+      if not @_inspecting_in_progress
+        @_inspecting_in_progress = true
+        ret << " " << members.map {|m| "#{m}=#{self[m].inspect}"}.join(', ')
+        @_inspecting_in_progress = nil
+      end
+      ret << ">"
+    end
   end # class StructHelper
 
   # This is a wrapper around the FFI::StructLayoutBuilder. Its goal is to 
