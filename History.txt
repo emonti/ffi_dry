@@ -1,3 +1,6 @@
+=== 0.1.6 / 2010-1-15
+  * support win32 with wsock32.dll for NetEndian helper stuff.
+
 === 0.1.5 / 2010-1-4
   * Added p_struct dsl directive sugar for creating FFI::Struct accessors to 
     handle pointers to structs.
