@@ -227,6 +227,7 @@ module FFI::DRY
     def initialize(pbind)
       @pbind = pbind
       @builder = ::FFI::StructLayoutBuilder.new
+      @builder.union = true if @pbind.ancestors.include?(FFI::Union)
       @metadata = []
       super()
     end
