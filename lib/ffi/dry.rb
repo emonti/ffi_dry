@@ -135,8 +135,8 @@ module FFI::DRY
     end
 
     # This method is called when creating a copy of self. It can be overridden
-    # by implmented structures to return another size to account for alignment
-    # issues etc.
+    # by derived structures to return another size. This is sometimes done
+    # to account for alignment issues, etc.
     def copy_size
       self.size
     end
@@ -156,8 +156,6 @@ module FFI::DRY
       def dsl_metadata
         @dsl_metadata
       end
-
-      private
 
       # This passes a block to an instance of DSLStructLayoutBuilder, allowing
       # for a more declarative syntax with extra metadata.
@@ -376,24 +374,23 @@ module FFI::DRY
       constants.inject({}){|h,c| h.merge! c => const_get(c) }
     end
 
-    private
-      # When called from a module definition or class method, this method 
-      # imports all the constants from # namespace 'nspace' that start with 
-      # into the local namespace as constants named with whatever follows the 
-      # prefix. Only constant names that match [A-Z][A-Z0-9_]+ are imported, 
-      # the rest are ignored.
-      #
-      # This method also yields the (short) constant name and value to a block
-      # if one is provided. The block works like [...].select {|c,v| ... } in
-      # that the value is not mapped if the block returns nil or false.
-      def slurp_constants(nspace, prefix)
-        nspace.constants.grep(/^(#{prefix}([A-Z][A-Z0-9_]+))$/) do
-          c = $2
-          v = nspace.const_get($1)
-          next if block_given? and not yield(c,v)
-          const_set c, v
-        end
+    # When called from a module definition or class method, this method 
+    # imports all the constants from # namespace 'nspace' that start with 
+    # into the local namespace as constants named with whatever follows the 
+    # prefix. Only constant names that match [A-Z][A-Z0-9_]+ are imported, 
+    # the rest are ignored.
+    #
+    # This method also yields the (short) constant name and value to a block
+    # if one is provided. The block works like [...].select {|c,v| ... } in
+    # that the value is not mapped if the block returns nil or false.
+    def slurp_constants(nspace, prefix)
+      nspace.constants.grep(/^(#{prefix}([A-Z][A-Z0-9_]+))$/) do
+        c = $2
+        v = nspace.const_get($1)
+        next if block_given? and not yield(c,v)
+        const_set c, v
       end
+    end
   end
 
   # Behaves just like ConstFlags, except that it returns a list
