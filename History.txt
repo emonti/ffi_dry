@@ -1,4 +1,4 @@
-=== 0.1.6 / 2010-1-15
+=== 0.1.6 / 2010-1-18
   * support win32 with wsock32.dll for NetEndian helper stuff.
   * support StructHelper for FFI::Unions
   * support passing arguments to StructLayoutBuilder in dsl_layout()

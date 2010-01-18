@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Eric Monti"]
-  s.date = %q{2010-01-17}
+  s.date = %q{2010-01-18}
   s.description = %q{Provides some useful modules, classes, and methods for FFI bindings  as well as a DSL-like syntax for FFI::Struct layouts}
   s.email = %q{emonti@matasano.com}
   s.extra_rdoc_files = [
