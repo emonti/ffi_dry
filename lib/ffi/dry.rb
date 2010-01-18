@@ -131,7 +131,14 @@ module FFI::DRY
     # which can be used to add to the size of the copied instance as it is 
     # allocated and copied.
     def copy(grown=0)
-      self.class.new( :raw => self.to_ptr.read_string(self.size+grown) )
+      self.class.new( :raw => self.to_ptr.read_string(self.copy_size+grown) )
+    end
+
+    # This method is called when creating a copy of self. It can be overridden
+    # by implmented structures to return another size to account for alignment
+    # issues etc.
+    def copy_size
+      self.size
     end
 
     # Returns a pointer to the specified field, which is the name assigned
@@ -191,18 +198,22 @@ module FFI::DRY
       base.extend(ClassMethods)
     end
 
-    alias inspect_orig inspect
 
-    # Overrides inspect to show field names and values
-    def inspect
-      ret = "#<#{self.class}"
-      if not @_inspecting_in_progress
-        @_inspecting_in_progress = true
-        ret << " " << members.map {|m| "#{m}=#{self[m].inspect}"}.join(', ')
-        @_inspecting_in_progress = nil
-      end
-      ret << ">"
-    end
+#    alias inspect_orig inspect
+    # Overrides inspect to show field names and values. 
+    #
+    # XXX This code is commented out due to an IRB/pretty_print bug in FFI - 
+    # see:
+    # http://github.com/ffi/ffi/issues#issue/28
+#    def inspect
+#      ret = "#<#{self.class}"
+#      if not @_inspecting_in_progress
+#        @_inspecting_in_progress = true
+#        ret << " " << members.map {|m| "#{m}=#{self[m].inspect}"}.join(', ')
+#        @_inspecting_in_progress = nil
+#      end
+#      ret << ">"
+#    end
   end # class StructHelper
 
   # This is a wrapper around the FFI::StructLayoutBuilder. Its goal is to 
@@ -229,10 +240,9 @@ module FFI::DRY
       @builder = ::FFI::StructLayoutBuilder.new
       @builder.union = true if @pbind.ancestors.include?(FFI::Union)
       @metadata = []
-      super()
     end
 
-    # calls StructLayoutBuider.build() on the bulder and returns its
+    # calls StructLayoutBuider.build() on the builder and returns its
     # result.
     def build
       @builder.build
@@ -256,9 +266,12 @@ module FFI::DRY
       return ret
     end
 
+    alias union struct
+
     # A pointer to a structure. The structure does not allocate the entire
-    # space for the structure, just a pointer. When calling the accessors for
-    # a p_struct field, a new instance of the FFI::Struct will be returned.
+    # space for the structure pointed to, just a pointer. When calling the 
+    # accessors for a p_struct field, a new instance of the FFI::Struct type
+    # for the pointer will be returned.
     def p_struct(name, klass, o={})
       unless klass.kind_of?(Class)
         raise(::ArgumentError, "klass must be a Class")
