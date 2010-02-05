@@ -339,7 +339,7 @@ module FFI::DRY
         const_set c, v
       end
     end
-  end
+  end # ConstMap
 
   # Behaves just like ConstFlags, except that it returns a list
   # of names for the flags. Name string lookups work same way as 
@@ -370,7 +370,7 @@ module FFI::DRY
         list[arg.to_s.upcase]
       end
     end
-  end
+  end # ConstFlagsMap
 
 
   module NetEndian
@@ -395,7 +395,7 @@ module FFI::DRY
       ::FFI.find_type(:int32)  => I32_convert,
       ::FFI.find_type(:uint32) => I32_convert,
     }
-  end
+  end # NetEndian
 
 
   # A special helper for network packet structures that use big-endian or
@@ -439,8 +439,7 @@ module FFI::DRY
         end
       end
     end
-  end
+  end # NetStructHelper
 
-end
-
+end # FFI::DRY
 
