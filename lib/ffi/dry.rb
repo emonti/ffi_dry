@@ -157,17 +157,33 @@ module FFI::DRY
         @dsl_metadata
       end
 
+      def define_field_accessor name, &block
+        if instance_methods.include?("#{name}")
+          warn "WARNING: The name '#{name}' is in use for class #{self} "+
+               "Skipping automatic method creation in dsl_layout block."
+        else
+          define_method name, &block
+        end
+      end
+
       # This passes a block to an instance of DSLStructLayoutBuilder, allowing
-      # for a more declarative syntax with extra metadata.
+      # for a more declarative syntax with additional metadata to be included.
       #
-      # It is a replacement to layout() and stores the dsl_metadata gathered
-      # about structure members locally.
+      # dsl_layout() a replacement to layout() and stores the dsl_metadata 
+      # gathered about structure members locally and automatically creates
+      # accessor methods for each field in the structure.
+      #
+      # NOTE if a structure field name conflicts with another instance method 
+      # already defined in the class, the relevant accessor method is not 
+      # created and a warning is issued. This does not apply to methods
+      # defined after the dsl_layout block is called. In other words this
+      # does not affect the overriding of accessor methods in any way.
       def dsl_layout &block
         builder = DSLStructLayoutBuilder.new(self)
         builder.instance_eval(&block)
-        @layout = builder.build
+        @layout = self.layout(*(builder.__layout_args))
         @size = @layout.size
-        _class_meths_from_dsl_metadata( builder.metadata )
+        _class_meths_from_dsl_metadata( builder.__metadata )
         return @layout
       end
 
@@ -175,19 +191,15 @@ module FFI::DRY
         (@dsl_metadata = meta).each do |spec|
           name = spec[:name]
           ftype = spec[:type]
-          unless instance_methods.include?(:"#{name}")
-            if p=spec[:p_struct] and p.kind_of?(Class)
-              define_method(:"#{name}") do
-                p.new(self[name]) unless self[name].null?
-              end
-            else
-              define_method(:"#{name}") { self[name] }
+          if p=spec[:p_struct] and p.kind_of?(Class)
+            define_field_accessor(:"#{name}") do
+              p.new(self[name]) unless self[name].null?
             end
+          else
+            define_field_accessor(:"#{name}") { self[name] }
           end
 
-          unless instance_methods.include?(:"#{name}=")
-            define_method(:"#{name}=") {|val| self[name]=val }
-          end 
+          define_field_accessor(:"#{name}=") {|val| self[name]=val }
         end
       end
     end
@@ -196,79 +208,28 @@ module FFI::DRY
       base.extend(ClassMethods)
     end
 
-
-#    alias inspect_orig inspect
-    # Overrides inspect to show field names and values. 
-    #
-    # XXX This code is commented out due to an IRB/pretty_print bug in FFI - 
-    # see:
-    # http://github.com/ffi/ffi/issues#issue/28
-#    def inspect
-#      ret = "#<#{self.class}"
-#      if not @_inspecting_in_progress
-#        @_inspecting_in_progress = true
-#        ret << " " << members.map {|m| "#{m}=#{self[m].inspect}"}.join(', ')
-#        @_inspecting_in_progress = nil
-#      end
-#      ret << ">"
-#    end
   end # class StructHelper
 
-  # This is a wrapper around the FFI::StructLayoutBuilder. Its goal is to 
-  # provides a more declarative syntax for defining structures and include
-  # the ability to attach arbitrary dsl_metadata information to structure 
-  # fields during definition.
-  #
-  # The "DSL" (and that's really very in-quotes) supplies 3 ways to
-  # define a field (for now):
-  #
-  #   field()
-  #   array()
-  #   struct()
-  #
-  # See the individual method descriptions for more info.
-  #
+  # This class provides the DSL for StructHelper.dsl_layout.
+  # You probably don't want to use this directly but if you do, to use the DSL,
+  # you may either pass a structure definition into 'instance_eval' or 
+  # call methods on the object. The methods __metadata and __layout_args return
+  # structure information back to the caller, which can use them to create
+  # a new structure.
   class DSLStructLayoutBuilder
-    attr_reader :builder, :metadata
+    attr_reader :__metadata, :__layout_args
 
-    # Initializes the builder with a reference to the structure using it
-    # Instead of duplicating Struct features, we just call back to them.
+    # Initializes the a new builder class. 
     def initialize(pbind)
       @pbind = pbind
-      @builder = ::FFI::StructLayoutBuilder.new
-      @builder.union = true if @pbind.ancestors.include?(FFI::Union)
-      @metadata = []
+      @__layout_args = []
+      @__metadata = []
+      yield self if block_given?
     end
-
-    # calls StructLayoutBuider.build() on the builder and returns its
-    # result.
-    def build
-      @builder.build
-    end
-
-    # Calls StructLayoutBuilder.add_struct() on the builder and stores
-    # a metadata hash entry (the opts hash with name and type overridden)
-    #
-    #   struct field_name,  RubyClass, { ... metadata ... }
-    #
-    # :offset is a special key in metadata, specifies the offset of the field.
-    def struct(name, klass, o={})
-      unless klass.kind_of?(Class) and klass < ::FFI::Struct
-        raise(::ArgumentError, "klass must be a struct")
-      end
-
-      opts = o.merge(:name => name, :type => klass)
-      offset = opts[:offset]
-      ret=@builder.add_struct(name, klass, offset)
-      @metadata << opts
-      return ret
-    end
-
-    alias union struct
 
     # A pointer to a structure. The structure does not allocate the entire
     # space for the structure pointed to, just a pointer. When calling the 
-    # accessors for a p_struct field, a new instance of the FFI::Struct type
+    # accessor for a p_struct field, a new instance of the FFI::Struct type
     # for the pointer will be returned.
     def p_struct(name, klass, o={})
       unless klass.kind_of?(Class)
@@ -279,35 +240,7 @@ module FFI::DRY
       field(name, :pointer, opts)
     end
 
-    # Calls StructLayoutBuider.add_array() on the builder and stores 
-    # a metadata hash entry (the opts hash with name and type overridden)
-    #
-    # Syntax:
-    #
-    #   array field_name, [ctype, N], { ... metadata ... }
-    #
-    # :offset is a special key in metadata, specifies the offset of the field.
-    def array(name, type, o={})
-      unless type.kind_of?(::Array)
-        raise(::ArgumentError, "type must be an array") 
-      end
-
-      opts = o.merge(:name => name, :type => type)
-      offset = opts[:offset]
-      mod = enclosing_module
-      ret= 
-        if @builder.respond_to?(:add_array)
-          @builder.add_array(name, find_type(type[0], mod), type[1], offset)
-        else
-          @builder.add_field(name, type, offset)
-        end
-
-      @metadata << opts
-      return ret
-    end
-
-    # Calls StructLayoutBuider.add_field() on the builder and stores 
-    # a metadata hash entry (the opts hash with name and type overridden)
+    # Declaratively adds a field to the structure.
     #
     # Syntax:
     #
@@ -317,29 +250,44 @@ module FFI::DRY
     def field(name, type, o={})
       opts = o.merge(:name => name, :type => type)
       offset = opts[:offset]
-      mod = enclosing_module
-      ret= @builder.add_field(name, find_type(type, mod), offset)
-      @metadata << opts
-      return ret
+
+      @__layout_args << name
+      @__layout_args << type
+      @__layout_args << offset if offset
+
+      @__metadata << opts
+      return opts
     end
 
-    # This is a support method used similarly as in the actual builder.
-    # XXX Note, as of 0.5.0-final, this became a protected method in the 
-    # FFI builder. We probably need to figure out another, *supported*, way to 
-    # do this without meddling into back-end FFI implementations.
-    def find_type(*args)
-      @pbind.instance_eval { find_type(*args) }
-    end
+    alias array field
+    alias struct field
+    alias union field
 
-    # This is a support method used similarly as in the actual builder.
-    # XXX Note, as of 0.5.0-final, this became a protected method in the 
-    # FFI builder. We probably need to figure out another, *supported*, way to 
-    # do this without meddling into back-end FFI implementations.
-    def enclosing_module(*args)
-      @pbind.instance_eval { enclosing_module(*args) }
-    end
+    # Experimental - Allows specifying structure fields by taking a missing 
+    # method name as field name for the structure.
+    def method_missing(name, type, *extra)
+      o={}
+      if extra.size > 1
+        raise(ArgumentError, 
+          "Bad field definition. Use: name :type, {optional extra parameters}")
+      elsif h=extra.first
+        if h.kind_of? Hash
+          o=h
+        else
+          raise(ArgumentError, "Options must be provided as a hash.")
+        end
+      end
+      opts = o.merge(:name => name, :type => type)
+      offset = opts[:offset]
 
-  end
+      @__layout_args << name
+      @__layout_args << type
+      @__layout_args << offset if offset
+
+      @__metadata << opts
+      return opts
+    end
+  end # DSLStructLayoutBuilder
 
   # ConstMap can be used to organize and lookup value to constant mappings and
   # vice versa. Constants can be imported from a namespace based on a regular
@@ -456,8 +404,12 @@ module FFI::DRY
   # for 'reading' a 16/32 bit field, and htons/htonl for writing to one.
   #
   # NOTE this helper does not currently do anything special for 64-bit or
-  # higher values.
+  # higher values but this might be added at some point if the need arises.
   #
+  # NOTE unlike the StructHelper module, no special relevance is given
+  # to fields with a ":p_struct" option or defined with the p_struct DSL 
+  # method.  These are ignored and treated like any other field. A net struct 
+  # generally doesn't contain pointers into native memory anyway.
   module NetStructHelper
     def self.included(base)
       base.instance_eval { include StructHelper }
@@ -476,24 +428,12 @@ module FFI::DRY
           # Create endian swapper accessors methods for each applicable
           # field
           if( type.kind_of?(Symbol) and 
-              cnv=NetEndian::ENDIAN_METHS[ ::FFI.find_type(type) ] )
-
-            unless instance_methods.include?(:"#{name}")
-              define_method(:"#{name}"){ cnv[0].call(self[name]) }
-            end
-            unless instance_methods.include?(:"#{name}=")
-              define_method(:"#{name}="){|val| self[name] = cnv[1].call(val) }
-            end
-
+            cnv=NetEndian::ENDIAN_METHS[ ::FFI.find_type(type) ] )
+            define_method(:"#{name}"){ cnv[0].call(self[name]) }
+            define_method(:"#{name}="){|val| self[name] = cnv[1].call(val) }
           else
-
-            unless instance_methods.include?(:"#{name}")
-              define_method(:"#{name}"){ self[name] } 
-            end
-            unless instance_methods.include?(:"#{name}=")
-              define_method(:"#{name}="){|val| self[name]=val }
-            end 
-
+            define_field_accessor(:"#{name}"){ self[name] } 
+            define_field_accessor(:"#{name}="){|val| self[name]=val }
           end
 
         end

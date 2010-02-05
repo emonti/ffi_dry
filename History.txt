@@ -1,3 +1,18 @@
+=== 0.1.7 / 2010-2-05
+  * Fixed bugs with FFI::Unions
+  * Revamped the dsl_layout builder so that it just wraps layout() instead of
+    attempting to duplicate its functionlity. This will hopefully stop causing
+    compatibility issues with FFI as it changes its internals and new versions 
+    are released.
+  * :p_struct is an attribute that can be used on any field with a type of 
+    :pointer.
+  * Added new experimental feature for the DSL where new fields can be defined
+    by their name as a method name in dsl_layout {} instead of having to 
+    prefix field/array/struct for each.
+  * A warning is now issued when a struct field name cannot be mapped to an
+    accessor method because it would cause a conflict. These used to just be
+    silently skipped. Now the warning is issued if warnings are enabled.
+
 === 0.1.6 / 2010-1-18
   * support win32 with wsock32.dll for NetEndian helper stuff.
   * support StructHelper for FFI::Unions
@@ -11,5 +26,6 @@
 === 0.1.4 / 2010-1-1
   * Support for FFI 0.5.0 final and up.
   * Added NetStructHelper with accessors to provide automatic network byte 
-  order conversion on network packet structures.
+    order conversion on network packet structures.
+
 
