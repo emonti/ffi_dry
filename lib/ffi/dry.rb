@@ -2,6 +2,10 @@ begin; require 'rubygems'; rescue LoadError; end
 
 require 'ffi'
 
+unless defined?(FFI::Library::LIBC)
+  FFI::Library::LIBC = (RUBY_PLATFORM == 'mswin32' ?  'msvcrt' : 'c')
+end
+
 module FFI::DRY
   
   # A module to add syntactic sugar and some nice automatic getter/setter
@@ -233,7 +237,7 @@ module FFI::DRY
     # for the pointer will be returned.
     def p_struct(name, klass, o={})
       unless klass.kind_of?(Class)
-        raise(::ArgumentError, "klass must be a Class")
+        raise(TypeError, "klass must be a Class")
       end
       opts = o.merge(:p_struct => klass)
       offset = opts[:offset]
@@ -269,12 +273,12 @@ module FFI::DRY
       o={}
       if extra.size > 1
         raise(ArgumentError, 
-          "Bad field definition. Use: name :type, {optional extra parameters}")
+          "Bad field syntax. Use: 'name :type, {optional extra parameters}'")
       elsif h=extra.first
         if h.kind_of? Hash
           o=h
         else
-          raise(ArgumentError, "Options must be provided as a hash.")
+          raise(TypeError, "Options must be provided as a hash.")
         end
       end
       opts = o.merge(:name => name, :type => type)
@@ -376,10 +380,8 @@ module FFI::DRY
   module NetEndian
     extend ::FFI::Library
 
-    begin
-      ffi_lib 'wsock32'
-    rescue LoadError
-    end
+    ffi_lib FFI::Library::LIBC
+    begin; ffi_lib 'wsock32'; rescue LoadError; end
 
     attach_function :htons, [:uint16], :uint16
     attach_function :ntohs, [:uint16], :uint16

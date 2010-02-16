@@ -1,3 +1,7 @@
+=== 0.1.8 / 2010-2-16
+  * Updated for compatability with ffi 0.6.x's new requirement that 
+    libraries be included with 'ffi_lib' even if they are already linked.
+
 === 0.1.7 / 2010-2-05
   * Fixed bugs with FFI::Unions
   * Revamped the dsl_layout builder so that it just wraps layout() instead of
