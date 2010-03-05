@@ -90,7 +90,7 @@ module FFI::DRY
       if args.size == 1 and (oparams=args[0]).is_a? Hash
         params = oparams.dup
         if raw=params.delete(:raw)
-          super( ::FFI::MemoryPointer.from_string(raw) )
+          super( ::FFI::MemoryPointer.new(raw.size).write_string(raw) )
         else
           super()
         end

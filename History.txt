@@ -1,3 +1,7 @@
+=== 0.1.9 / 2010-3-5
+  * Workaround peculiar FFI::MemoryPointer.from_string() bugs when using 
+    :raw => buf in ruby 1.9.x
+
 === 0.1.8 / 2010-2-16
   * Updated for compatability with ffi 0.6.x's new requirement that 
     libraries be included with 'ffi_lib' even if they are already linked.
