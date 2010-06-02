@@ -6,7 +6,7 @@ unless defined?(FFI::Library::LIBC)
   FFI::Library::LIBC = (RUBY_PLATFORM == 'mswin32' ?  'msvcrt' : 'c')
 end
 
-module FFI::DRY
+module FFI
   module Library
     # Helper method for attaching optional functions which may not be present.
     # Just catches and ignores any FFI::NotFoundError exceptions.
