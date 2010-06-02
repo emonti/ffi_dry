@@ -1,4 +1,4 @@
-=== 0.1.10 / 2010-6-2
+=== 0.1.11 / 2010-6-2
   * Added attach_optional_function to FFI::Library for dealing with functions
     that are not always present.
 
