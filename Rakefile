@@ -12,8 +12,6 @@ begin
     gem.homepage = "http://github.com/emonti/ffi_dry"
     gem.authors = ["Eric Monti"]
     gem.add_dependency "ffi", ">= 0.5.0"
-    gem.add_development_dependency "rspec"
-    gem.add_development_dependency "yard"
   end
 rescue LoadError
   puts "Jeweler (or a dependency) not available. Install it with: sudo gem install jeweler"
