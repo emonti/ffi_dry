@@ -20,9 +20,9 @@ module FFI
       # Returns a ruby exception derived from the current value of errno.
       # As per the intro(2) manpage, this should only ever be called after an
       # error has been deteted from a function that sets the errno variable.
-      def errno_exception
+      def errno_exception(arg=nil)
         err = self.errno
-        return SystemCallError.new(strerror(err), err)
+        return SystemCallError.new(arg, err)
       end
 
       # An alias for FFI.errno
