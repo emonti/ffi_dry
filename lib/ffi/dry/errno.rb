@@ -21,6 +21,7 @@ module FFI
       # As per the intro(2) manpage, this should only ever be called after an
       # error has been deteted from a function that sets the errno variable.
       def errno_exception
+        err = self.errno
         return SystemCallError.new(strerror(err), err)
       end
 
